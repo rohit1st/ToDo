@@ -221,11 +221,14 @@
         .sheet-action:active { background: #f3f4f6; }
         .sheet-action .sheet-icon { font-size: 1.4rem; }
 
-        /* Install / add-to-home-screen banner */
-        #installBanner {
+        /* Install / add-to-home-screen banner. The outer #installBanner element carries
+           only visibility (controlled by Tailwind's hidden class, toggled in JS) — no
+           competing `display` rule here, since an ID selector would always beat a class
+           selector like `.hidden` regardless of source order, making it un-hideable. */
+        .install-banner-inner {
             display: flex; align-items: center; gap: 0.75rem;
             background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a;
-            border-radius: 0.75rem; padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+            border-radius: 0.75rem; padding: 0.75rem 1rem;
             font-size: 0.85rem;
         }
 
@@ -249,11 +252,13 @@
     <div class="container mx-auto px-3 md:px-4 py-4 md:py-6 max-w-7xl">
 
         <!-- Install / Add to Home Screen banner -->
-        <div id="installBanner" class="hidden">
-            <span class="text-xl">📲</span>
-            <span id="installBannerText" class="flex-1">Install this dashboard on your home screen for quick access.</span>
-            <button id="installBannerAction" onclick="installApp()" class="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Install</button>
-            <button onclick="dismissInstallBanner()" class="text-blue-900 text-lg leading-none px-1" aria-label="Dismiss">×</button>
+        <div id="installBanner" class="hidden mb-3">
+            <div class="install-banner-inner">
+                <span class="text-xl">📲</span>
+                <span id="installBannerText" class="flex-1">Install this dashboard on your home screen for quick access.</span>
+                <button id="installBannerAction" onclick="installApp()" class="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Install</button>
+                <button onclick="dismissInstallBanner()" class="text-blue-900 text-lg leading-none px-1" aria-label="Dismiss">×</button>
+            </div>
         </div>
 
         <!-- Today summary / streak banner -->
@@ -1106,9 +1111,19 @@
 
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+
             if (isIOS && isSafari) {
+                // iOS Safari has no install API at all — only the manual Share-sheet route works.
                 document.getElementById('installBannerText').textContent =
                     'Add this dashboard to your Home Screen: tap Share, then "Add to Home Screen".';
+                document.getElementById('installBannerAction').style.display = 'none';
+                document.getElementById('installBanner').classList.remove('hidden');
+            } else if (!isIOS && isSafari) {
+                // Desktop Safari also has no beforeinstallprompt API — it never fires here,
+                // so there is no real "Install" action to offer. Safari 17+ (macOS Sonoma+)
+                // supports adding web apps via its own File menu instead.
+                document.getElementById('installBannerText').textContent =
+                    'On Safari, use File → Add to Dock to install this as an app (or open this page in Chrome/Edge for one-tap install).';
                 document.getElementById('installBannerAction').style.display = 'none';
                 document.getElementById('installBanner').classList.remove('hidden');
             }
