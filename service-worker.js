@@ -2,7 +2,7 @@
 // Caches the app shell so it loads instantly and works offline.
 // Bump CACHE_NAME whenever index.html or other cached files change,
 // so returning users get the update instead of a stale cache.
-const CACHE_NAME = 'personal-dashboard-v1';
+const CACHE_NAME = 'personal-dashboard-v2';
 
 const APP_SHELL = [
   './',

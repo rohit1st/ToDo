@@ -228,6 +228,21 @@
             border-radius: 0.75rem; padding: 0.75rem 1rem; margin-bottom: 0.75rem;
             font-size: 0.85rem;
         }
+
+        /* Onboarding wizard chips */
+        .onboard-chip {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem;
+            border-radius: 0.75rem; border: 2px solid #e5e7eb; background: white;
+            text-align: left; cursor: pointer; transition: all 0.15s;
+        }
+        .onboard-chip.selected { border-color: #3b82f6; background: #eff6ff; }
+        .onboard-chip:active { transform: scale(0.97); }
+        .onboard-task-chip {
+            padding: 0.4rem 0.75rem; border-radius: 9999px; border: 1px solid #e5e7eb;
+            background: white; font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+        }
+        .onboard-task-chip.selected { border-color: #10b981; background: #ecfdf5; color: #065f46; font-weight: 600; }
+        .onboard-task-chip:active { transform: scale(0.96); }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -240,6 +255,9 @@
             <button id="installBannerAction" onclick="installApp()" class="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Install</button>
             <button onclick="dismissInstallBanner()" class="text-blue-900 text-lg leading-none px-1" aria-label="Dismiss">×</button>
         </div>
+
+        <!-- Today summary / streak banner -->
+        <div id="todayBanner" class="flex items-center justify-between gap-2 flex-wrap bg-white border border-gray-200 rounded-lg px-4 py-2 mb-3 text-sm text-gray-700 shadow-sm"></div>
 
         <!-- Header -->
         <div class="bg-white rounded-lg shadow-md p-3 md:p-4 mb-3 md:mb-4 sticky top-0 z-20" style="top: var(--safe-top);">
@@ -278,6 +296,8 @@
                                 <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="importCSV(event); closeDropdown();">
                             </label>
                             <button onclick="exportCSV(); closeDropdown();">📤 Export CSV</button>
+                            <div style="border-top: 1px solid #e5e7eb; margin: 0.25rem 0;"></div>
+                            <button onclick="startOnboarding(); closeDropdown();">🎁 Setup Wizard</button>
                         </div>
                     </div>
                 </div>
@@ -381,6 +401,9 @@
                 <button class="sheet-action" onclick="showShortcuts(); closeMobileMenu();">
                     <span class="sheet-icon">⌨️</span> Shortcuts
                 </button>
+                <button class="sheet-action" onclick="startOnboarding(); closeMobileMenu();">
+                    <span class="sheet-icon">🎁</span> Setup Wizard
+                </button>
             </div>
             <button onclick="closeMobileMenu()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium text-sm">
                 Close
@@ -476,6 +499,28 @@
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Add New Section</label>
                     <div class="flex gap-2">
+                        <select id="newSectionEmoji" class="border border-gray-300 rounded-lg px-2 text-lg bg-white" title="Icon">
+                            <option value="📁" selected>📁</option>
+                            <option value="🏠">🏠</option>
+                            <option value="💼">💼</option>
+                            <option value="👨‍👩‍👧">👨‍👩‍👧</option>
+                            <option value="🎉">🎉</option>
+                            <option value="💪">💪</option>
+                            <option value="🛒">🛒</option>
+                            <option value="💰">💰</option>
+                            <option value="📚">📚</option>
+                            <option value="✈️">✈️</option>
+                            <option value="🚀">🚀</option>
+                            <option value="🎨">🎨</option>
+                            <option value="🐾">🐾</option>
+                            <option value="🌱">🌱</option>
+                            <option value="⚽">⚽</option>
+                            <option value="🎮">🎮</option>
+                            <option value="📅">📅</option>
+                            <option value="❤️">❤️</option>
+                            <option value="🧘">🧘</option>
+                            <option value="🍳">🍳</option>
+                        </select>
                         <input type="text" id="newSectionName" class="flex-1 border border-gray-300 rounded-lg px-4 py-2" placeholder="Section name">
                         <button onclick="addSection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
                             Add
@@ -610,11 +655,72 @@
         </div>
     </div>
 
+    <!-- Onboarding Wizard -->
+    <div id="onboardingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[92vh] overflow-y-auto">
+            <div class="p-6 md:p-8">
+
+                <!-- Step 0: Welcome -->
+                <div id="onboardStep0" class="text-center">
+                    <div class="text-6xl mb-4">👋</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome to your Dashboard!</h2>
+                    <p class="text-gray-600 mb-6">Let's set up a few areas of your life to track — takes about a minute, and it's kind of fun. Promise.</p>
+                    <button onclick="onboardingNext()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-lg">Let's go →</button>
+                    <button onclick="skipOnboarding()" class="w-full text-gray-500 hover:text-gray-700 mt-3 text-sm">Skip setup, use the defaults</button>
+                </div>
+
+                <!-- Step 1: Choose sections -->
+                <div id="onboardStep1" class="hidden">
+                    <h2 class="text-xl font-bold text-gray-800 mb-1">What areas do you want to track?</h2>
+                    <p class="text-gray-500 text-sm mb-4">Tap the ones that fit your life — add or rename any of these later.</p>
+                    <div id="onboardSectionGrid" class="grid grid-cols-2 gap-2 mb-4"></div>
+                    <div class="flex gap-2 mb-6">
+                        <input type="text" id="onboardCustomSectionInput" placeholder="+ Your own (e.g. Garden)" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault(); addOnboardingCustomSection();}">
+                        <button onclick="addOnboardingCustomSection()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 rounded-lg text-sm font-medium">Add</button>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="onboardingBack()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium">Back</button>
+                        <button onclick="onboardingNext()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-semibold">Next →</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Starter tasks -->
+                <div id="onboardStep2" class="hidden">
+                    <h2 class="text-xl font-bold text-gray-800 mb-1">Want a running start?</h2>
+                    <p class="text-gray-500 text-sm mb-4">Tap any that sound useful, or skip and add your own later.</p>
+                    <div id="onboardTaskList" class="space-y-4 mb-6 max-h-[45vh] overflow-y-auto pr-1"></div>
+                    <div class="flex gap-3">
+                        <button onclick="onboardingBack()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium">Back</button>
+                        <button onclick="onboardingNext()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-semibold">Next →</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: All set -->
+                <div id="onboardStep3" class="hidden text-center">
+                    <div class="text-6xl mb-4">🎉</div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">You're all set!</h2>
+                    <p id="onboardSummary" class="text-gray-600 mb-2"></p>
+                    <p class="text-gray-500 text-sm mb-6">Tip: press <kbd class="bg-gray-100 px-1.5 py-0.5 rounded">?</kbd> anytime for keyboard shortcuts, or tap a section pill on mobile to jump straight to it.</p>
+                    <button onclick="finishOnboarding()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-lg">Start using my dashboard 🚀</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <script>
         // Data structure
         let tasks = [];
         let archivedTasks = [];
-        let sections = ['APC', 'STV', 'Team', 'Internal Comms', 'External Comms', 'People to Connect with'];
+        let sections = ['Home', 'Work Projects', 'Family & Kids', 'Social', 'Health & Fitness', 'Errands'];
+        let sectionEmojis = {
+            'Home': '🏠',
+            'Work Projects': '💼',
+            'Family & Kids': '👨‍👩‍👧',
+            'Social': '🎉',
+            'Health & Fitness': '💪',
+            'Errands': '🛒'
+        };
         let syncConfig = {
             method: 'none',
             autoSync: false,
@@ -625,6 +731,7 @@
         let selectedTask = null;
         let showingArchive = false;
         let mobileActiveSection = 'all';
+        let dashboardStats = { lastCompletionDate: null, streakDays: 0, totalCompleted: 0 };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -637,6 +744,8 @@
             autoArchiveOldTasks();
             setupInstallPrompt();
             registerServiceWorker();
+            renderTodayBanner();
+            maybeShowOnboarding();
 
             // Home screen shortcut / deep link support: ?action=new opens the add-task modal
             const params = new URLSearchParams(window.location.search);
@@ -670,7 +779,8 @@
             let html = `<button class="section-tab ${mobileActiveSection === 'all' ? 'active' : ''}" onclick="setMobileSection('all')">All (${filtered.length})</button>`;
             sections.forEach(section => {
                 const count = filtered.filter(t => t.section === section).length;
-                html += `<button class="section-tab ${mobileActiveSection === section ? 'active' : ''}" onclick="setMobileSection('${section.replace(/'/g, "\\'")}')">${section} (${count})</button>`;
+                const emoji = sectionEmojis[section] || '📁';
+                html += `<button class="section-tab ${mobileActiveSection === section ? 'active' : ''}" onclick="setMobileSection('${section.replace(/'/g, "\\'")}')">${emoji} ${section} (${count})</button>`;
             });
             container.innerHTML = html;
         }
@@ -678,6 +788,301 @@
         function setMobileSection(section) {
             mobileActiveSection = section;
             renderSections();
+        }
+
+        // ===== Fun: "today" summary banner + streak =====
+        function renderTodayBanner() {
+            const el = document.getElementById('todayBanner');
+            if (!el) return;
+
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const active = tasks.filter(t => t.dueDate);
+            const overdue = active.filter(t => new Date(t.dueDate) < today && t.status !== 'Complete').length;
+            const dueToday = active.filter(t => {
+                const d = new Date(t.dueDate); d.setHours(0, 0, 0, 0);
+                return d.getTime() === today.getTime() && t.status !== 'Complete';
+            }).length;
+
+            let message;
+            if (overdue > 0) {
+                message = `${overdue} task${overdue === 1 ? '' : 's'} overdue — let's clear ${overdue === 1 ? 'it' : 'them'} 💪`;
+            } else if (dueToday > 0) {
+                message = `${dueToday} task${dueToday === 1 ? '' : 's'} due today. You've got this 🚀`;
+            } else {
+                const calmMessages = [
+                    "Nothing urgent today — nice and clear 🌤️",
+                    "All caught up on deadlines. Enjoy it 🙌",
+                    "No fires to put out today ✨",
+                    "Smooth sailing today ⛵"
+                ];
+                message = calmMessages[Math.floor(Math.random() * calmMessages.length)];
+            }
+
+            const streak = dashboardStats.streakDays || 0;
+            const streakBadge = streak >= 2 ? ` <span class="whitespace-nowrap">🔥 ${streak}-day streak</span>` : '';
+
+            el.innerHTML = `<span>${greeting}! ${message}</span>${streakBadge}`;
+        }
+
+        // Call whenever a task is completed, to build/maintain the daily streak.
+        function recordCompletionForStreak() {
+            const todayStr = new Date().toDateString();
+            if (dashboardStats.lastCompletionDate === todayStr) {
+                dashboardStats.totalCompleted = (dashboardStats.totalCompleted || 0) + 1;
+                return; // Already counted today's streak day
+            }
+
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            if (dashboardStats.lastCompletionDate === yesterday.toDateString()) {
+                dashboardStats.streakDays = (dashboardStats.streakDays || 0) + 1;
+            } else {
+                dashboardStats.streakDays = 1;
+            }
+            dashboardStats.lastCompletionDate = todayStr;
+            dashboardStats.totalCompleted = (dashboardStats.totalCompleted || 0) + 1;
+        }
+
+        // Rotating light-hearted copy for empty sections (purely cosmetic, no state).
+        const EMPTY_SECTION_MESSAGES = ["All clear! 🌤️", "Nothing here... yet 👀", "Blank canvas ✨", "Squeaky clean 🧼"];
+        function randomEmptyMessage() {
+            return EMPTY_SECTION_MESSAGES[Math.floor(Math.random() * EMPTY_SECTION_MESSAGES.length)];
+        }
+
+        // Rotating celebratory copy for completing a task.
+        const COMPLETE_MESSAGES = ["Nice work! 🎉", "Boom, done! 💥", "One less thing! ✅", "You're on fire! 🔥", "Crushed it 💪", "Nailed it! 🙌"];
+        function randomCompleteMessage() {
+            return COMPLETE_MESSAGES[Math.floor(Math.random() * COMPLETE_MESSAGES.length)];
+        }
+
+        // ===== Fun: lightweight confetti burst (no dependencies) =====
+        function launchConfetti(originX, originY, count = 60) {
+            const colors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#a855f7', '#ec4899'];
+            const hasOrigin = typeof originX === 'number' && typeof originY === 'number';
+            for (let i = 0; i < count; i++) {
+                const piece = document.createElement('div');
+                const size = 6 + Math.random() * 6;
+                const startX = hasOrigin ? originX : Math.random() * window.innerWidth;
+                const startY = hasOrigin ? originY : -20;
+                const drift = (Math.random() - 0.5) * 300;
+                const fall = window.innerHeight - startY + 100;
+                const duration = 1.1 + Math.random() * 0.9;
+                const rotation = Math.random() * 720 - 360;
+
+                piece.style.cssText = `
+                    position: fixed; left: ${startX}px; top: ${startY}px;
+                    width: ${size}px; height: ${size * (Math.random() > 0.5 ? 1 : 2.2)}px;
+                    background: ${colors[Math.floor(Math.random() * colors.length)]};
+                    border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+                    z-index: 9999; pointer-events: none; opacity: 1;
+                    transform: translate(0,0) rotate(0deg);
+                    transition: transform ${duration}s cubic-bezier(0.15,0.5,0.4,1), opacity ${duration}s ease-in;
+                `;
+                document.body.appendChild(piece);
+                requestAnimationFrame(() => {
+                    piece.style.transform = `translate(${drift}px, ${fall}px) rotate(${rotation}deg)`;
+                    piece.style.opacity = '0';
+                });
+                setTimeout(() => piece.remove(), duration * 1000 + 100);
+            }
+        }
+
+        // ===== Onboarding wizard =====
+        const SECTION_TEMPLATES = [
+            { name: 'Home', emoji: '🏠', preset: true },
+            { name: 'Work Projects', emoji: '💼', preset: true },
+            { name: 'Family & Kids', emoji: '👨‍👩‍👧', preset: true },
+            { name: 'Social', emoji: '🎉', preset: true },
+            { name: 'Errands', emoji: '🛒', preset: true },
+            { name: 'Health & Fitness', emoji: '💪', preset: false },
+            { name: 'Finance', emoji: '💰', preset: false },
+            { name: 'Learning', emoji: '📚', preset: false },
+            { name: 'Travel', emoji: '✈️', preset: false },
+            { name: 'Side Projects', emoji: '🚀', preset: false }
+        ];
+        const STARTER_TASKS = {
+            'Home': ['Water the plants 🌱', 'Plan weekend groceries 🛒', 'Tidy the living room 🧹'],
+            'Work Projects': ["Review this week's priorities 📋", 'Block focus time on your calendar 📅'],
+            'Family & Kids': ['Plan a family activity 🎲', 'Handle school forms 📄'],
+            'Social': ["Text a friend you haven't caught up with 💬", 'Plan a coffee catch-up ☕'],
+            'Errands': ['Pick up dry cleaning 👕', 'Renew a subscription or license ⏰'],
+            'Health & Fitness': ['Book that overdue check-up 🩺', 'Go for a 20-minute walk 🚶'],
+            'Finance': ["Review this month's budget 💰", 'Set up an auto-transfer to savings 🏦'],
+            'Learning': ['Read 10 pages of a book 📖', 'Watch one course video 🎓'],
+            'Travel': ['Research next trip ideas 🗺️', 'Check passport expiry ✈️'],
+            'Side Projects': ['Spend 30 minutes on your side project 🚀', 'Write down your next big idea 💡']
+        };
+
+        let onboardingStep = 0;
+        let onboardingSelectedSections = new Set();
+        let onboardingCustomSections = [];
+        let onboardingSelectedTasks = new Set();
+
+        function maybeShowOnboarding() {
+            if (localStorage.getItem('dashboardOnboardingDone') === 'true') return;
+            // Only greet fresh, empty dashboards — never interrupt someone who already has data.
+            if (tasks.length > 0 || archivedTasks.length > 0) {
+                localStorage.setItem('dashboardOnboardingDone', 'true');
+                return;
+            }
+            startOnboarding();
+        }
+
+        function startOnboarding() {
+            onboardingStep = 0;
+            onboardingSelectedSections = new Set(SECTION_TEMPLATES.filter(s => s.preset).map(s => s.name));
+            onboardingCustomSections = [];
+            onboardingSelectedTasks = new Set();
+            document.getElementById('onboardingOverlay').classList.remove('hidden');
+            renderOnboardingStep();
+        }
+
+        function renderOnboardingStep() {
+            ['onboardStep0', 'onboardStep1', 'onboardStep2', 'onboardStep3'].forEach((id, i) => {
+                document.getElementById(id).classList.toggle('hidden', i !== onboardingStep);
+            });
+            if (onboardingStep === 1) renderOnboardSectionGrid();
+            if (onboardingStep === 2) renderOnboardTaskList();
+            if (onboardingStep === 3) renderOnboardSummary();
+        }
+
+        function onboardingNext() {
+            if (onboardingStep < 3) onboardingStep++;
+            renderOnboardingStep();
+        }
+        function onboardingBack() {
+            if (onboardingStep > 0) onboardingStep--;
+            renderOnboardingStep();
+        }
+
+        function allOnboardingSections() {
+            return [
+                ...SECTION_TEMPLATES,
+                ...onboardingCustomSections.map(name => ({ name, emoji: '📁', preset: false }))
+            ];
+        }
+
+        function renderOnboardSectionGrid() {
+            const grid = document.getElementById('onboardSectionGrid');
+            grid.innerHTML = allOnboardingSections().map(s => `
+                <button class="onboard-chip ${onboardingSelectedSections.has(s.name) ? 'selected' : ''}" onclick="toggleOnboardingSection('${s.name.replace(/'/g, "\\'")}')">
+                    <span class="text-xl">${s.emoji}</span>
+                    <span class="text-sm font-medium">${s.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function toggleOnboardingSection(name) {
+            if (onboardingSelectedSections.has(name)) {
+                onboardingSelectedSections.delete(name);
+                // Drop any starter tasks that belonged only to this section
+                Array.from(onboardingSelectedTasks).forEach(key => {
+                    if (key.startsWith(name + '::')) onboardingSelectedTasks.delete(key);
+                });
+            } else {
+                onboardingSelectedSections.add(name);
+            }
+            renderOnboardSectionGrid();
+        }
+
+        function addOnboardingCustomSection() {
+            const input = document.getElementById('onboardCustomSectionInput');
+            const name = input.value.trim();
+            if (!name) return;
+            if (allOnboardingSections().some(s => s.name.toLowerCase() === name.toLowerCase())) {
+                showShortcutHint('Already added');
+                return;
+            }
+            onboardingCustomSections.push(name);
+            onboardingSelectedSections.add(name);
+            input.value = '';
+            renderOnboardSectionGrid();
+        }
+
+        function renderOnboardTaskList() {
+            const container = document.getElementById('onboardTaskList');
+            const selectedSections = allOnboardingSections().filter(s => onboardingSelectedSections.has(s.name));
+            const withSuggestions = selectedSections.filter(s => STARTER_TASKS[s.name]);
+
+            if (withSuggestions.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 italic text-sm text-center py-6">No starter suggestions for your custom sections — that's fine, you can add tasks any time!</p>`;
+                return;
+            }
+
+            container.innerHTML = withSuggestions.map(s => `
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">${s.emoji} ${s.name}</div>
+                    <div class="flex flex-wrap gap-2">
+                        ${STARTER_TASKS[s.name].map(t => {
+                            const key = s.name + '::' + t;
+                            const selected = onboardingSelectedTasks.has(key);
+                            return `<button class="onboard-task-chip ${selected ? 'selected' : ''}" onclick="toggleOnboardingTask('${key.replace(/'/g, "\\'")}')">${selected ? '✓ ' : '+ '}${t}</button>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleOnboardingTask(key) {
+            if (onboardingSelectedTasks.has(key)) {
+                onboardingSelectedTasks.delete(key);
+            } else {
+                onboardingSelectedTasks.add(key);
+            }
+            renderOnboardTaskList();
+        }
+
+        function renderOnboardSummary() {
+            const sectionCount = onboardingSelectedSections.size;
+            const taskCount = onboardingSelectedTasks.size;
+            document.getElementById('onboardSummary').textContent =
+                `${sectionCount} section${sectionCount === 1 ? '' : 's'} ready` +
+                (taskCount > 0 ? ` with ${taskCount} starter task${taskCount === 1 ? '' : 's'} waiting for you.` : ' — a clean slate!');
+        }
+
+        function finishOnboarding() {
+            const chosen = allOnboardingSections().filter(s => onboardingSelectedSections.has(s.name));
+
+            if (chosen.length > 0) {
+                sections = chosen.map(s => s.name);
+                sectionEmojis = {};
+                chosen.forEach(s => { sectionEmojis[s.name] = s.emoji; });
+            } // else: keep the built-in defaults already set
+
+            onboardingSelectedTasks.forEach(key => {
+                const [sectionName, title] = key.split('::');
+                tasks.push({
+                    id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+                    section: sectionName,
+                    title: title,
+                    priority: 'Medium',
+                    timeline: 'This Week',
+                    status: 'Not Started',
+                    owner: '',
+                    notes: '',
+                    dueDate: '',
+                    created: new Date().toISOString(),
+                    completed: ''
+                });
+            });
+
+            localStorage.setItem('dashboardOnboardingDone', 'true');
+            saveToLocalStorage();
+            document.getElementById('onboardingOverlay').classList.add('hidden');
+            renderSections();
+            renderTasks();
+
+            launchConfetti(window.innerWidth / 2, 120, 100);
+            showShortcutHint("Welcome aboard! 🎉");
+        }
+
+        function skipOnboarding() {
+            localStorage.setItem('dashboardOnboardingDone', 'true');
+            document.getElementById('onboardingOverlay').classList.add('hidden');
         }
 
         // ===== PWA: install prompt (Android/Chrome) + iOS "Add to Home Screen" tip =====
@@ -975,6 +1380,8 @@
             localStorage.setItem('dashboardTasks', JSON.stringify(tasks));
             localStorage.setItem('dashboardArchivedTasks', JSON.stringify(archivedTasks));
             localStorage.setItem('dashboardSections', JSON.stringify(sections));
+            localStorage.setItem('dashboardSectionEmojis', JSON.stringify(sectionEmojis));
+            localStorage.setItem('dashboardStats', JSON.stringify(dashboardStats));
             localStorage.setItem('lastUpdate', new Date().toISOString());
             updateSyncStatus();
             
@@ -989,10 +1396,14 @@
             const savedTasks = localStorage.getItem('dashboardTasks');
             const savedArchivedTasks = localStorage.getItem('dashboardArchivedTasks');
             const savedSections = localStorage.getItem('dashboardSections');
+            const savedEmojis = localStorage.getItem('dashboardSectionEmojis');
+            const savedStats = localStorage.getItem('dashboardStats');
             
             if (savedTasks) tasks = JSON.parse(savedTasks);
             if (savedArchivedTasks) archivedTasks = JSON.parse(savedArchivedTasks);
             if (savedSections) sections = JSON.parse(savedSections);
+            if (savedEmojis) sectionEmojis = JSON.parse(savedEmojis);
+            if (savedStats) dashboardStats = JSON.parse(savedStats);
             
             updateSyncStatus();
         }
@@ -1029,11 +1440,11 @@
                 sectionDiv.className = 'bg-white rounded-lg shadow-md p-4 section-card' + (mobileHidden ? ' mobile-filtered-out' : '');
                 sectionDiv.innerHTML = `
                     <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center justify-between">
-                        <span>${section}</span>
+                        <span>${sectionEmojis[section] || '📁'} ${section}</span>
                         <span class="text-xs font-normal text-gray-500">${sectionTasks.length}</span>
                     </h2>
                     <div class="space-y-2" id="section-${section.replace(/\s+/g, '-')}">
-                        ${sectionTasks.length === 0 ? '<p class="text-gray-400 italic text-sm">No tasks</p>' : ''}
+                        ${sectionTasks.length === 0 ? `<p class="text-gray-400 italic text-sm">${randomEmptyMessage()}</p>` : ''}
                     </div>
                     ${!showingArchive ? `<div class="quick-add-zone" onclick="quickAddTask('${section.replace(/'/g, "\\'")}')">
                         <p class="text-gray-500 text-xs text-center">+ Add to ${section}</p>
@@ -1043,6 +1454,7 @@
             });
 
             renderMobileSectionTabs();
+            renderTodayBanner();
 
             // Render tasks in each section
             renderTasks();
@@ -1141,7 +1553,7 @@
                             <div class="flex gap-1 flex-shrink-0">
                                 ${showingArchive ? 
                                     `<button onclick="unarchiveTask('${task.id}'); event.stopPropagation();" class="task-icon-btn text-green-600 hover:text-green-800 text-xs font-medium flex items-center justify-center" title="Restore">↩</button>` :
-                                    `<button onclick="toggleTaskComplete('${task.id}'); event.stopPropagation();" class="task-icon-btn hover:bg-gray-100 rounded p-1 flex items-center justify-center" title="Mark Complete (C)">
+                                    `<button onclick="toggleTaskComplete('${task.id}', event); event.stopPropagation();" class="task-icon-btn hover:bg-gray-100 rounded p-1 flex items-center justify-center" title="Mark Complete (C)">
                                         ${isComplete ? '☑' : '☐'}
                                     </button>`
                                 }
@@ -1240,17 +1652,38 @@
         }
 
         // Toggle task complete
-        function toggleTaskComplete(id) {
+        function toggleTaskComplete(id, event) {
             const taskList = showingArchive ? archivedTasks : tasks;
             const task = taskList.find(t => t.id === id);
             if (!task) return;
 
-            task.status = task.status === 'Complete' ? 'Not Started' : 'Complete';
-            task.completed = task.status === 'Complete' ? new Date().toISOString() : '';
+            const nowCompleting = task.status !== 'Complete';
+            task.status = nowCompleting ? 'Complete' : 'Not Started';
+            task.completed = nowCompleting ? new Date().toISOString() : '';
             
             saveToLocalStorage();
             renderTasks();
-            showShortcutHint(`Marked ${task.status.toLowerCase()}`);
+
+            if (nowCompleting) {
+                recordCompletionForStreak();
+                saveToLocalStorage(); // persist updated streak stats
+
+                const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
+                const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
+
+                // Celebrate harder if that was the last active task in its section
+                const sectionCleared = !showingArchive && tasks.filter(t => t.section === task.section && t.status !== 'Complete').length === 0;
+                if (sectionCleared) {
+                    launchConfetti(x, y, 90);
+                    showShortcutHint(`🎉 ${task.section} is all clear!`);
+                } else {
+                    launchConfetti(x, y, 24);
+                    showShortcutHint(randomCompleteMessage());
+                }
+                renderTodayBanner();
+            } else {
+                showShortcutHint('Marked not started');
+            }
         }
 
         // Update task priority
@@ -1654,13 +2087,21 @@
             renderSectionsList();
         }
 
+        // Small curated emoji set used for section icons (onboarding + manage sections)
+        const EMOJI_CHOICES = ['📁','🏠','💼','👨‍👩‍👧','🎉','💪','🛒','💰','📚','✈️','🚀','🎨','🐾','🌱','⚽','🎮','📅','❤️','🧘','🍳'];
+        function emojiSelectOptions(selected) {
+            return EMOJI_CHOICES.map(e => `<option value="${e}" ${e === selected ? 'selected' : ''}>${e}</option>`).join('');
+        }
+
         // Render sections list
         function renderSectionsList() {
             const list = document.getElementById('sectionsList');
             list.innerHTML = sections.map((section, index) => `
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div class="flex items-center gap-2 flex-1">
-                        <span class="text-gray-500 text-xs font-bold">${index + 1}</span>
+                        <select onchange="updateSectionEmoji(${index}, this.value)" class="border border-gray-200 rounded-lg text-lg bg-white" title="Section icon">
+                            ${emojiSelectOptions(sectionEmojis[section] || '📁')}
+                        </select>
                         <input type="text" 
                                value="${section}" 
                                onchange="renameSection(${index}, this.value)"
@@ -1669,6 +2110,13 @@
                     <button onclick="deleteSection(${index})" class="text-red-600 hover:text-red-800 text-sm font-medium ml-2">Delete</button>
                 </div>
             `).join('');
+        }
+
+        function updateSectionEmoji(index, emoji) {
+            const section = sections[index];
+            sectionEmojis[section] = emoji;
+            saveToLocalStorage();
+            renderSections();
         }
 
         // Rename section
@@ -1701,6 +2149,11 @@
                 }
             });
             
+            if (newName !== oldName) {
+                sectionEmojis[newName] = sectionEmojis[oldName] || '📁';
+                delete sectionEmojis[oldName];
+            }
+
             sections[index] = newName;
             saveToLocalStorage();
             renderSectionsList();
@@ -1711,6 +2164,7 @@
         // Add section
         function addSection() {
             const input = document.getElementById('newSectionName');
+            const emojiInput = document.getElementById('newSectionEmoji');
             const name = input.value.trim();
             
             if (!name) {
@@ -1724,6 +2178,7 @@
             }
             
             sections.push(name);
+            sectionEmojis[name] = (emojiInput && emojiInput.value) || '📁';
             saveToLocalStorage();
             renderSectionsList();
             renderSections();
@@ -1742,6 +2197,7 @@
                 tasks = tasks.filter(t => t.section !== section);
             }
             
+            delete sectionEmojis[section];
             sections.splice(index, 1);
             saveToLocalStorage();
             renderSectionsList();
