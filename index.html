@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Personal Dashboard</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dashboard">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+
+    <link rel="stylesheet" href="tailwind.css">
+    <style>
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        html, body { overscroll-behavior-y: contain; }
+        body { padding-bottom: calc(1rem + var(--safe-bottom)); }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #10b981; }
+        .priority-badge-high { background-color: #fee2e2; color: #991b1b; }
+        .priority-badge-medium { background-color: #fef3c7; color: #92400e; }
+        .priority-badge-low { background-color: #d1fae5; color: #065f46; }
+        .status-complete { background-color: #d1fae5; border-left-color: #10b981; }
+        .status-in-progress { background-color: #dbeafe; border-left-color: #3b82f6; }
+        .status-blocked { background-color: #fee2e2; border-left-color: #ef4444; }
+        .status-not-started { background-color: #f3f4f6; border-left-color: #9ca3af; }
+        .section-card { transition: all 0.2s; }
+        .section-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .quick-add-zone { 
+            border: 2px dashed #d1d5db; 
+            border-radius: 0.5rem; 
+            padding: 0.5rem; 
+            margin-top: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-add-zone:hover { 
+            border-color: #3b82f6; 
+            background-color: #eff6ff; 
+        }
+        .inline-edit {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background: white;
+        }
+        .inline-edit:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 1px;
+        }
+        .shortcut-hint {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .sync-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        .sync-dot.syncing {
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            z-index: 1000;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .dropdown-content button,
+        .dropdown-content label {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border: none;
+            background: white;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        .dropdown-content button:hover,
+        .dropdown-content label:hover {
+            background-color: #f3f4f6;
+        }
+        .dropdown.active .dropdown-content {
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .task-item { font-size: 0.95rem; }
+            .shortcut-hint { display: none; }
+
+            /* Bigger touch targets on mobile */
+            .inline-edit { min-height: 34px; padding: 0.3rem 0.5rem; font-size: 0.8rem; }
+            .task-item input[type="text"] { min-height: 30px; }
+            .task-item .task-icon-btn { min-width: 40px; min-height: 40px; font-size: 1.1rem; }
+            .quick-add-zone { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+            #filtersSection select, #filtersSection input { min-height: 42px; font-size: 0.95rem; }
+        }
+
+        /* Section tab pills (mobile section switcher) */
+        .section-tab {
+            flex-shrink: 0;
+            padding: 0.5rem 0.9rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            background: white;
+            color: #4b5563;
+            border: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        .section-tab.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        @media (min-width: 768px) {
+            #mobileSectionTabs { display: none; }
+        }
+        @media (max-width: 767px) {
+            .section-card.mobile-filtered-out { display: none !important; }
+        }
+
+        /* Floating action button — mobile only. Uses its own media query (rather than
+           relying on Tailwind's md:hidden cascade order) since this rule also sets
+           `display`, and needs to reliably win/lose against that on its own. */
+        .fab {
+            display: none;
+            position: fixed;
+            right: 1.25rem;
+            bottom: calc(1.25rem + var(--safe-bottom));
+            z-index: 30;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 9999px;
+            background: #3b82f6;
+            color: white;
+            font-size: 1.75rem;
+            line-height: 1;
+            box-shadow: 0 10px 20px rgba(59,130,246,0.4), 0 3px 6px rgba(0,0,0,0.15);
+            align-items: center;
+            justify-content: center;
+            border: none;
+            transition: transform 0.15s;
+        }
+        @media (max-width: 767px) {
+            .fab { display: flex; }
+        }
+        .fab:active { transform: scale(0.92); }
+
+        /* Bottom sheet (mobile menu) */
+        .bottom-sheet-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 60;
+        }
+        .bottom-sheet {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+            background: white;
+            border-radius: 1.25rem 1.25rem 0 0;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.25);
+            padding: 0.75rem 1rem calc(1.5rem + var(--safe-bottom));
+            max-height: 82vh;
+            overflow-y: auto;
+            animation: sheetUp 0.22s ease-out;
+        }
+        @keyframes sheetUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .sheet-handle {
+            width: 2.5rem; height: 0.3rem; background: #d1d5db; border-radius: 9999px;
+            margin: 0.25rem auto 0.75rem;
+        }
+        .sheet-action {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 0.35rem; padding: 0.9rem 0.5rem; border-radius: 0.75rem;
+            background: #f9fafb; font-size: 0.75rem; font-weight: 600; color: #374151;
+            border: 1px solid #f3f4f6; cursor: pointer; min-height: 44px;
+        }
+        .sheet-action:active { background: #f3f4f6; }
+        .sheet-action .sheet-icon { font-size: 1.4rem; }
+
+        /* Install / add-to-home-screen banner */
+        #installBanner {
+            display: flex; align-items: center; gap: 0.75rem;
+            background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a;
+            border-radius: 0.75rem; padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-3 md:px-4 py-4 md:py-6 max-w-7xl">
+
+        <!-- Install / Add to Home Screen banner -->
+        <div id="installBanner" class="hidden">
+            <span class="text-xl">📲</span>
+            <span id="installBannerText" class="flex-1">Install this dashboard on your home screen for quick access.</span>
+            <button id="installBannerAction" onclick="installApp()" class="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Install</button>
+            <button onclick="dismissInstallBanner()" class="text-blue-900 text-lg leading-none px-1" aria-label="Dismiss">×</button>
+        </div>
+
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-3 md:p-4 mb-3 md:mb-4 sticky top-0 z-20" style="top: var(--safe-top);">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button onclick="openMobileMenu()" class="md:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 active:bg-gray-200 text-xl shrink-0" aria-label="Menu" title="Menu">
+                        ☰
+                    </button>
+                    <div class="min-w-0">
+                        <h1 class="text-lg md:text-2xl font-bold text-gray-800 truncate">Personal Dashboard</h1>
+                        <p class="text-gray-600 text-xs md:text-sm mt-0.5 sync-indicator">
+                            <span class="sync-dot" id="syncDot"></span>
+                            <span id="lastSync" class="truncate">No data loaded</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="hidden md:flex flex-wrap gap-2 shrink-0">
+                    <button onclick="showAddTaskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium text-sm" title="Shortcut: N">
+                        + Task
+                    </button>
+                    <button onclick="showShortcuts()" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-medium text-sm" title="Shortcut: ?">
+                        ⌨️
+                    </button>
+                    <div class="dropdown">
+                        <button onclick="toggleDropdown(event)" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            ⋯
+                        </button>
+                        <div class="dropdown-content" style="min-width: 220px;">
+                            <button onclick="toggleArchiveView(); closeDropdown();" id="archiveToggleMenu">📦 View Archive</button>
+                            <button onclick="manageSections(); closeDropdown();">📂 Manage Sections</button>
+                            <button onclick="toggleFilters(); closeDropdown();" id="filterToggle">🔍 Show Filters</button>
+                            <div style="border-top: 1px solid #e5e7eb; margin: 0.25rem 0;"></div>
+                            <button onclick="showSyncConfig(); closeDropdown();">⚙️ CSV Sync</button>
+                            <label class="cursor-pointer">
+                                📥 Import CSV
+                                <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="importCSV(event); closeDropdown();">
+                            </label>
+                            <button onclick="exportCSV(); closeDropdown();">📤 Export CSV</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters - Initially Hidden -->
+            <div id="filtersSection" class="mt-4 hidden">
+                <div class="flex flex-col md:flex-row gap-3 mb-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Timeline</label>
+                        <select id="timelineFilter" onchange="filterTasks()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="">All Timelines</option>
+                            <option value="Today">End of Day</option>
+                            <option value="This Week">End of Week</option>
+                            <option value="This Month">End of Month</option>
+                            <option value="This Quarter">End of Quarter</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Priority</label>
+                        <select id="priorityFilter" onchange="filterTasks()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="">All Priorities</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                        <select id="statusFilter" onchange="filterTasks()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="">All Statuses</option>
+                            <option value="Not Started">Not Started</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Blocked">Blocked</option>
+                            <option value="Complete">Complete</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Due By</label>
+                        <select id="dueDateFilter" onchange="filterTasks()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="">All Due Dates</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="today">Today</option>
+                            <option value="tomorrow">Tomorrow</option>
+                            <option value="thisweek">This Week</option>
+                            <option value="nextweek">Next Week</option>
+                            <option value="thismonth">This Month</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Search (Ctrl+F)</label>
+                        <input type="text" id="searchInput" onkeyup="filterTasks()" placeholder="Search tasks..." class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile section switcher (horizontal scroll pills) -->
+        <div id="mobileSectionTabs" class="flex gap-2 overflow-x-auto pb-1 mb-3 -mx-1 px-1" style="scrollbar-width: none;">
+            <!-- Pills generated dynamically -->
+        </div>
+
+        <!-- Task Sections -->
+        <div id="taskSections" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Sections will be dynamically generated -->
+        </div>
+    </div>
+
+    <!-- Mobile Floating Action Button -->
+    <button class="fab md:hidden" onclick="showAddTaskModal()" title="Add task (N)" aria-label="Add task">+</button>
+
+    <!-- Mobile Menu Bottom Sheet -->
+    <div id="mobileMenuOverlay" class="hidden md:hidden">
+        <div class="bottom-sheet-backdrop" onclick="closeMobileMenu()"></div>
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="grid grid-cols-4 gap-2 mb-3">
+                <button class="sheet-action" onclick="showAddTaskModal(); closeMobileMenu();">
+                    <span class="sheet-icon">➕</span> Add Task
+                </button>
+                <button class="sheet-action" onclick="toggleArchiveView(); closeMobileMenu();" id="archiveToggleMenuMobile">
+                    <span class="sheet-icon">📦</span> Archive
+                </button>
+                <button class="sheet-action" onclick="manageSections(); closeMobileMenu();">
+                    <span class="sheet-icon">📂</span> Sections
+                </button>
+                <button class="sheet-action" onclick="toggleFilters(); closeMobileMenu();">
+                    <span class="sheet-icon">🔍</span> Filters
+                </button>
+                <button class="sheet-action" onclick="showSyncConfig(); closeMobileMenu();">
+                    <span class="sheet-icon">⚙️</span> CSV Sync
+                </button>
+                <button class="sheet-action" onclick="triggerImportCSV(); closeMobileMenu();">
+                    <span class="sheet-icon">📥</span> Import
+                </button>
+                <button class="sheet-action" onclick="exportCSV(); closeMobileMenu();">
+                    <span class="sheet-icon">📤</span> Export
+                </button>
+                <button class="sheet-action" onclick="showShortcuts(); closeMobileMenu();">
+                    <span class="sheet-icon">⌨️</span> Shortcuts
+                </button>
+            </div>
+            <button onclick="closeMobileMenu()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium text-sm">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Add/Edit Task Modal -->
+    <div id="taskModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <h2 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-4">Add Task</h2>
+                <form id="taskForm" onsubmit="saveTask(event)">
+                    <input type="hidden" id="taskId">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Section *</label>
+                        <select id="taskSection" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Task Title *</label>
+                        <input type="text" id="taskTitle" required class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Enter task title">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Priority *</label>
+                            <select id="taskPriority" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                <option value="High">High</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Timeline *</label>
+                            <select id="taskTimeline" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                <option value="Today">End of Day</option>
+                                <option value="This Week" selected>End of Week</option>
+                                <option value="This Month">End of Month</option>
+                                <option value="This Quarter">End of Quarter</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                            <select id="taskStatus" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                <option value="Not Started" selected>Not Started</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Blocked">Blocked</option>
+                                <option value="Complete">Complete</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                            <input type="date" id="taskDueDate" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+                        <input type="text" id="taskOwner" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="You / Team member">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <textarea id="taskNotes" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Additional context or details"></textarea>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                            Save Task
+                        </button>
+                        <button type="button" onclick="closeTaskModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Sections Modal -->
+    <div id="sectionsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Manage Sections</h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Add New Section</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newSectionName" class="flex-1 border border-gray-300 rounded-lg px-4 py-2" placeholder="Section name">
+                        <button onclick="addSection()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Sections (Press 1-9 to jump)</label>
+                    <div id="sectionsList" class="space-y-2">
+                        <!-- Sections list populated dynamically -->
+                    </div>
+                </div>
+
+                <button onclick="closeSectionsModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV Sync Configuration Modal -->
+    <div id="syncModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">CSV Sync Configuration</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sync Method</label>
+                    <select id="syncMethod" onchange="updateSyncMethod()" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                        <option value="none">No Auto-Sync (Manual only)</option>
+                        <option value="local">Local File (Auto-save to Downloads)</option>
+                        <option value="gdrive">Google Drive (via File System API)</option>
+                    </select>
+                </div>
+
+                <div id="localSyncOptions" class="mb-6 hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p class="text-sm text-blue-800 mb-2">
+                            <strong>Local File Sync:</strong> Select a CSV file on your computer. Changes will auto-save to this file.
+                        </p>
+                        <button onclick="selectLocalFile()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                            Select CSV File Location
+                        </button>
+                        <p id="localFilePath" class="mt-2 text-sm text-gray-600"></p>
+                    </div>
+                </div>
+
+                <div id="gdriveSyncOptions" class="mb-6 hidden">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p class="text-sm text-green-800 mb-2">
+                            <strong>Google Drive Sync:</strong> Select a CSV file from your Google Drive. You'll need to have Google Drive desktop app installed or use File System Access API.
+                        </p>
+                        <button onclick="selectGDriveFile()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                            Select Google Drive CSV
+                        </button>
+                        <p id="gdriveFilePath" class="mt-2 text-sm text-gray-600"></p>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="autoSyncEnabled" onchange="toggleAutoSync()" class="rounded">
+                        <span class="text-sm font-medium text-gray-700">Enable Auto-Sync (save every 30 seconds)</span>
+                    </label>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="syncNow()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                        Sync Now
+                    </button>
+                    <button onclick="closeSyncModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcutsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Keyboard Shortcuts</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">General</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span>New Task</span><kbd class="bg-gray-100 px-2 py-1 rounded">N</kbd></div>
+                            <div class="flex justify-between"><span>Import CSV</span><kbd class="bg-gray-100 px-2 py-1 rounded">I</kbd></div>
+                            <div class="flex justify-between"><span>Export CSV</span><kbd class="bg-gray-100 px-2 py-1 rounded">E</kbd></div>
+                            <div class="flex justify-between"><span>Toggle Archive</span><kbd class="bg-gray-100 px-2 py-1 rounded">A</kbd></div>
+                            <div class="flex justify-between"><span>Toggle Filters</span><kbd class="bg-gray-100 px-2 py-1 rounded">F</kbd></div>
+                            <div class="flex justify-between"><span>Search</span><kbd class="bg-gray-100 px-2 py-1 rounded">Ctrl+F</kbd></div>
+                            <div class="flex justify-between"><span>Shortcuts Help</span><kbd class="bg-gray-100 px-2 py-1 rounded">?</kbd></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-2">Navigation</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span>Jump to Section 1-9</span><kbd class="bg-gray-100 px-2 py-1 rounded">1-9</kbd></div>
+                            <div class="flex justify-between"><span>Next Task</span><kbd class="bg-gray-100 px-2 py-1 rounded">Tab</kbd></div>
+                            <div class="flex justify-between"><span>Edit Selected Task</span><kbd class="bg-gray-100 px-2 py-1 rounded">Enter</kbd></div>
+                            <div class="flex justify-between"><span>Close Modal</span><kbd class="bg-gray-100 px-2 py-1 rounded">Esc</kbd></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="font-semibold text-gray-700 mb-2">Task Actions (Select Task First)</h3>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex justify-between"><span>Mark Complete</span><kbd class="bg-gray-100 px-2 py-1 rounded">C</kbd></div>
+                        <div class="flex justify-between"><span>Delete Task</span><kbd class="bg-gray-100 px-2 py-1 rounded">D</kbd></div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-blue-800">
+                        <strong>Tips:</strong><br>
+                        • Press 1-9 to jump to sections<br>
+                        • Use Tab to navigate between tasks<br>
+                        • Press Enter to edit the selected task<br>
+                        • Click a task to select it (blue outline), then use C or D
+                    </p>
+                </div>
+
+                <button onclick="closeShortcutsModal()" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data structure
+        let tasks = [];
+        let archivedTasks = [];
+        let sections = ['APC', 'STV', 'Team', 'Internal Comms', 'External Comms', 'People to Connect with'];
+        let syncConfig = {
+            method: 'none',
+            autoSync: false,
+            fileHandle: null,
+            lastSync: null
+        };
+        let autoSyncInterval = null;
+        let selectedTask = null;
+        let showingArchive = false;
+        let mobileActiveSection = 'all';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFromLocalStorage();
+            renderSections();
+            renderTasks();
+            setupKeyboardShortcuts();
+            loadSyncConfig();
+            // Auto-archive completed tasks that are older than 24 hours
+            autoArchiveOldTasks();
+            setupInstallPrompt();
+            registerServiceWorker();
+
+            // Home screen shortcut / deep link support: ?action=new opens the add-task modal
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('action') === 'new') {
+                showAddTaskModal();
+            }
+        });
+
+        // ===== Mobile: hamburger bottom-sheet menu =====
+        function openMobileMenu() {
+            document.getElementById('mobileMenuOverlay').classList.remove('hidden');
+        }
+        function closeMobileMenu() {
+            document.getElementById('mobileMenuOverlay').classList.add('hidden');
+        }
+
+        // Single source of truth for the hidden CSV file input, regardless of which
+        // menu (desktop dropdown or mobile sheet) triggered the import.
+        function triggerImportCSV() {
+            document.getElementById('csvInput').click();
+        }
+
+        // ===== Mobile: section tabs (horizontal pill switcher) =====
+        function renderMobileSectionTabs() {
+            const container = document.getElementById('mobileSectionTabs');
+            if (!container) return;
+
+            const currentTasks = showingArchive ? archivedTasks : tasks;
+            const filtered = getFilteredTasks(currentTasks);
+
+            let html = `<button class="section-tab ${mobileActiveSection === 'all' ? 'active' : ''}" onclick="setMobileSection('all')">All (${filtered.length})</button>`;
+            sections.forEach(section => {
+                const count = filtered.filter(t => t.section === section).length;
+                html += `<button class="section-tab ${mobileActiveSection === section ? 'active' : ''}" onclick="setMobileSection('${section.replace(/'/g, "\\'")}')">${section} (${count})</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function setMobileSection(section) {
+            mobileActiveSection = section;
+            renderSections();
+        }
+
+        // ===== PWA: install prompt (Android/Chrome) + iOS "Add to Home Screen" tip =====
+        let deferredInstallPrompt = null;
+
+        function setupInstallPrompt() {
+            const isStandalone = window.navigator.standalone === true ||
+                window.matchMedia('(display-mode: standalone)').matches;
+            if (isStandalone) return; // Already installed/running as an app
+
+            if (localStorage.getItem('installBannerDismissed') === 'true') return;
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredInstallPrompt = e;
+                document.getElementById('installBannerText').textContent =
+                    'Install this dashboard on your home screen for quick, full-screen access.';
+                document.getElementById('installBannerAction').style.display = '';
+                document.getElementById('installBanner').classList.remove('hidden');
+            });
+
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+            if (isIOS && isSafari) {
+                document.getElementById('installBannerText').textContent =
+                    'Add this dashboard to your Home Screen: tap Share, then "Add to Home Screen".';
+                document.getElementById('installBannerAction').style.display = 'none';
+                document.getElementById('installBanner').classList.remove('hidden');
+            }
+        }
+
+        function installApp() {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt.userChoice.finally(() => {
+                deferredInstallPrompt = null;
+                document.getElementById('installBanner').classList.add('hidden');
+            });
+        }
+
+        function dismissInstallBanner() {
+            document.getElementById('installBanner').classList.add('hidden');
+            localStorage.setItem('installBannerDismissed', 'true');
+        }
+
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+                navigator.serviceWorker.register('service-worker.js').catch(err => {
+                    console.log('Service worker registration failed:', err);
+                });
+            }
+        }
+
+        // Keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // Ignore if typing in input/textarea
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                    if (e.key === 'Escape') {
+                        e.target.blur();
+                        closeAllModals();
+                    }
+                    return;
+                }
+
+                const key = e.key.toLowerCase();
+                const ctrl = e.ctrlKey || e.metaKey;
+
+                // Prevent default for our shortcuts
+                if (['n', 'i', 'e', '?', 'c', 'a', 'd', 'f'].includes(key) || 
+                    ['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(key) ||
+                    (ctrl && key === 'f') || key === 'tab' || key === 'enter') {
+                    if (!(ctrl && key === 'f')) { // Allow Ctrl+F for browser search too
+                        e.preventDefault();
+                    }
+                }
+
+                // Global shortcuts
+                if (key === 'n') showAddTaskModal();
+                else if (key === 'i') document.getElementById('csvInput').click();
+                else if (key === 'e') exportCSV();
+                else if (key === '?') showShortcuts();
+                else if (key === 'a') toggleArchiveView();
+                else if (key === 'f') toggleFilters();
+                else if (ctrl && key === 'f') document.getElementById('searchInput').focus();
+                else if (key === 'escape') closeAllModals();
+
+                // Section shortcuts (1-9 to jump to section)
+                else if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(key)) {
+                    const sectionIndex = parseInt(key) - 1;
+                    if (sectionIndex < sections.length) {
+                        jumpToSection(sections[sectionIndex]);
+                    }
+                }
+
+                // Task navigation with Tab and Enter
+                else if (key === 'tab') {
+                    navigateTask('next');
+                }
+                else if (key === 'enter' && selectedTask) {
+                    openTaskForEditing(selectedTask);
+                }
+
+                // Task-specific shortcuts (when a task is selected)
+                if (selectedTask) {
+                    if (key === 'c') toggleTaskComplete(selectedTask);
+                    else if (key === 'd') {
+                        deleteTask(selectedTask);
+                        selectedTask = null;
+                    }
+                }
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.matches('.dropdown button') && !e.target.closest('.dropdown')) {
+                    closeDropdown();
+                }
+            });
+        }
+
+        // Toggle filters visibility
+        function toggleFilters() {
+            const filtersSection = document.getElementById('filtersSection');
+            const filterToggle = document.getElementById('filterToggle');
+            if (filtersSection.classList.contains('hidden')) {
+                filtersSection.classList.remove('hidden');
+                filterToggle.textContent = '🔍 Hide Filters';
+            } else {
+                filtersSection.classList.add('hidden');
+                filterToggle.textContent = '🔍 Show Filters';
+            }
+        }
+
+        // Jump to section
+        function jumpToSection(section) {
+            const sectionId = `section-${section.replace(/\s+/g, '-')}`;
+            const sectionEl = document.getElementById(sectionId);
+            if (sectionEl) {
+                sectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                showShortcutHint(`Jumped to ${section}`);
+            }
+        }
+
+        // Navigate between tasks
+        function navigateTask(direction) {
+            // offsetParent is null for elements hidden via the mobile section switcher,
+            // so this naturally skips tasks in sections not currently shown on mobile.
+            const allTasks = Array.from(document.querySelectorAll('.task-item')).filter(el => el.offsetParent !== null);
+            if (allTasks.length === 0) return;
+
+            let currentIndex = -1;
+            if (selectedTask) {
+                currentIndex = allTasks.findIndex(el => el.dataset.taskId === selectedTask);
+            }
+
+            let nextIndex;
+            if (direction === 'next') {
+                nextIndex = (currentIndex + 1) % allTasks.length;
+            } else {
+                nextIndex = currentIndex - 1;
+                if (nextIndex < 0) nextIndex = allTasks.length - 1;
+            }
+
+            const nextTask = allTasks[nextIndex];
+            if (nextTask) {
+                selectTask(nextTask.dataset.taskId);
+                nextTask.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        // Open task for editing (when Enter is pressed)
+        function openTaskForEditing(id) {
+            const taskList = showingArchive ? archivedTasks : tasks;
+            const task = taskList.find(t => t.id === id);
+            if (!task || showingArchive) return;
+
+            // Focus on the title field of the task
+            const taskEl = document.querySelector(`[data-task-id="${id}"]`);
+            if (taskEl) {
+                const titleInput = taskEl.querySelector('input[type="text"]');
+                if (titleInput) {
+                    titleInput.focus();
+                    titleInput.select();
+                }
+            }
+        }
+
+        // Dropdown functions
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            const dropdown = event.target.closest('.dropdown');
+            dropdown.classList.toggle('active');
+        }
+
+        function closeDropdown() {
+            document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
+        }
+
+        // Show shortcut hint temporarily
+        function showShortcutHint(message) {
+            const existing = document.querySelector('.shortcut-hint');
+            if (existing) existing.remove();
+
+            const hint = document.createElement('div');
+            hint.className = 'shortcut-hint';
+            hint.textContent = message;
+            document.body.appendChild(hint);
+
+            setTimeout(() => hint.remove(), 2000);
+        }
+
+        // Toggle archive view
+        function toggleArchiveView() {
+            showingArchive = !showingArchive;
+            const btn = document.getElementById('archiveToggleMenu');
+            const btnMobile = document.getElementById('archiveToggleMenuMobile');
+            
+            if (showingArchive) {
+                if (btn) btn.textContent = '📋 View Active Tasks';
+                if (btnMobile) btnMobile.innerHTML = '<span class="sheet-icon">📋</span> Active';
+            } else {
+                if (btn) btn.textContent = '📦 View Archive';
+                if (btnMobile) btnMobile.innerHTML = '<span class="sheet-icon">📦</span> Archive';
+            }
+            
+            mobileActiveSection = 'all';
+            renderSections();
+            renderTasks();
+        }
+
+        // Auto-archive completed tasks older than 24 hours
+        function autoArchiveOldTasks() {
+            const now = new Date();
+            const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+            
+            const toArchive = tasks.filter(task => {
+                if (task.status === 'Complete' && task.completed) {
+                    const completedDate = new Date(task.completed);
+                    return completedDate < oneDayAgo;
+                }
+                return false;
+            });
+            
+            if (toArchive.length > 0) {
+                toArchive.forEach(task => {
+                    task.archived = true;
+                    task.archivedDate = new Date().toISOString();
+                });
+                
+                archivedTasks = archivedTasks.concat(toArchive);
+                tasks = tasks.filter(task => !toArchive.includes(task));
+                
+                saveToLocalStorage();
+                console.log(`Auto-archived ${toArchive.length} completed tasks`);
+            }
+        }
+
+        // Manually archive a task
+        function archiveTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            task.archived = true;
+            task.archivedDate = new Date().toISOString();
+            
+            archivedTasks.push(task);
+            tasks = tasks.filter(t => t.id !== id);
+            
+            saveToLocalStorage();
+            renderSections();
+            renderTasks();
+            showShortcutHint('Task archived');
+        }
+
+        // Unarchive a task
+        function unarchiveTask(id) {
+            const task = archivedTasks.find(t => t.id === id);
+            if (!task) return;
+            
+            task.archived = false;
+            delete task.archivedDate;
+            
+            tasks.push(task);
+            archivedTasks = archivedTasks.filter(t => t.id !== id);
+            
+            saveToLocalStorage();
+            renderSections();
+            renderTasks();
+            showShortcutHint('Task restored');
+        }
+
+        // Save to localStorage
+        function saveToLocalStorage() {
+            localStorage.setItem('dashboardTasks', JSON.stringify(tasks));
+            localStorage.setItem('dashboardArchivedTasks', JSON.stringify(archivedTasks));
+            localStorage.setItem('dashboardSections', JSON.stringify(sections));
+            localStorage.setItem('lastUpdate', new Date().toISOString());
+            updateSyncStatus();
+            
+            // Trigger immediate sync if auto-sync is enabled
+            if (syncConfig.autoSync && syncConfig.fileHandle && syncConfig.method !== 'none') {
+                syncNow(true).catch(err => console.error('Auto-sync failed:', err));
+            }
+        }
+
+        // Load from localStorage
+        function loadFromLocalStorage() {
+            const savedTasks = localStorage.getItem('dashboardTasks');
+            const savedArchivedTasks = localStorage.getItem('dashboardArchivedTasks');
+            const savedSections = localStorage.getItem('dashboardSections');
+            
+            if (savedTasks) tasks = JSON.parse(savedTasks);
+            if (savedArchivedTasks) archivedTasks = JSON.parse(savedArchivedTasks);
+            if (savedSections) sections = JSON.parse(savedSections);
+            
+            updateSyncStatus();
+        }
+
+        // Update sync status
+        function updateSyncStatus() {
+            const lastUpdate = localStorage.getItem('lastUpdate');
+            const syncEl = document.getElementById('lastSync');
+            if (lastUpdate) {
+                const date = new Date(lastUpdate);
+                syncEl.textContent = `Last updated: ${date.toLocaleString()}`;
+            } else {
+                syncEl.textContent = 'No data loaded';
+            }
+        }
+
+        // Render sections
+        function renderSections() {
+            const container = document.getElementById('taskSections');
+            container.innerHTML = '';
+
+            const currentTasks = showingArchive ? archivedTasks : tasks;
+
+            // Reset the mobile section-switcher if a section was deleted/renamed away
+            if (mobileActiveSection !== 'all' && !sections.includes(mobileActiveSection)) {
+                mobileActiveSection = 'all';
+            }
+
+            sections.forEach(section => {
+                const sectionTasks = getFilteredTasks(currentTasks).filter(t => t.section === section);
+                const mobileHidden = mobileActiveSection !== 'all' && mobileActiveSection !== section;
+                
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'bg-white rounded-lg shadow-md p-4 section-card' + (mobileHidden ? ' mobile-filtered-out' : '');
+                sectionDiv.innerHTML = `
+                    <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center justify-between">
+                        <span>${section}</span>
+                        <span class="text-xs font-normal text-gray-500">${sectionTasks.length}</span>
+                    </h2>
+                    <div class="space-y-2" id="section-${section.replace(/\s+/g, '-')}">
+                        ${sectionTasks.length === 0 ? '<p class="text-gray-400 italic text-sm">No tasks</p>' : ''}
+                    </div>
+                    ${!showingArchive ? `<div class="quick-add-zone" onclick="quickAddTask('${section.replace(/'/g, "\\'")}')">
+                        <p class="text-gray-500 text-xs text-center">+ Add to ${section}</p>
+                    </div>` : ''}
+                `;
+                container.appendChild(sectionDiv);
+            });
+
+            renderMobileSectionTabs();
+
+            // Render tasks in each section
+            renderTasks();
+        }
+
+        // Quick add task to specific section
+        function quickAddTask(section) {
+            showAddTaskModal(section);
+        }
+
+        // Render tasks
+        function renderTasks() {
+            const currentTasks = showingArchive ? archivedTasks : tasks;
+            const filteredTasks = getFilteredTasks(currentTasks);
+
+            sections.forEach(section => {
+                const sectionId = `section-${section.replace(/\s+/g, '-')}`;
+                const sectionEl = document.getElementById(sectionId);
+                if (!sectionEl) return;
+
+                const sectionTasks = filteredTasks.filter(t => t.section === section);
+                
+                // Sort by created date - newest first (reverse chronological)
+                sectionTasks.sort((a, b) => {
+                    const dateA = new Date(a.created || 0);
+                    const dateB = new Date(b.created || 0);
+                    return dateB - dateA; // Reverse chronological
+                });
+                
+                if (sectionTasks.length === 0) {
+                    sectionEl.innerHTML = '<p class="text-gray-400 italic text-sm">No tasks</p>';
+                    return;
+                }
+
+                sectionEl.innerHTML = sectionTasks.map(task => {
+                    const statusClass = `status-${task.status.toLowerCase().replace(' ', '-')}`;
+                    const dueDateDisplay = task.dueDate ? formatDueDate(task.dueDate) : '';
+                    const isDueSoon = task.dueDate && isDateSoon(task.dueDate);
+                    const isOverdue = task.dueDate && isDateOverdue(task.dueDate);
+                    const isComplete = task.status === 'Complete';
+                    
+                    return `
+                    <div class="border border-gray-200 rounded-lg p-2 priority-${task.priority.toLowerCase()} ${statusClass} transition-colors task-item" 
+                         data-task-id="${task.id}"
+                         tabindex="0"
+                         onclick="selectTask('${task.id}')"
+                         onkeydown="if(event.key==='Enter') openTaskForEditing('${task.id}')"
+                         style="cursor: pointer;">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1 mb-1 flex-wrap">
+                                    <select class="inline-edit text-xs font-semibold priority-badge-${task.priority.toLowerCase()}" 
+                                            onchange="updateTaskField('${task.id}', 'priority', this.value)" 
+                                            onclick="event.stopPropagation()"
+                                            ${showingArchive ? 'disabled' : ''}>
+                                        <option value="High" ${task.priority === 'High' ? 'selected' : ''}>H</option>
+                                        <option value="Medium" ${task.priority === 'Medium' ? 'selected' : ''}>M</option>
+                                        <option value="Low" ${task.priority === 'Low' ? 'selected' : ''}>L</option>
+                                    </select>
+                                    <select class="inline-edit text-xs font-semibold bg-blue-100 text-blue-800" 
+                                            onchange="updateTaskField('${task.id}', 'timeline', this.value)"
+                                            onclick="event.stopPropagation()"
+                                            ${showingArchive ? 'disabled' : ''}>
+                                        <option value="Today" ${task.timeline === 'Today' ? 'selected' : ''}>Day</option>
+                                        <option value="This Week" ${task.timeline === 'This Week' ? 'selected' : ''}>Week</option>
+                                        <option value="This Month" ${task.timeline === 'This Month' ? 'selected' : ''}>Month</option>
+                                        <option value="This Quarter" ${task.timeline === 'This Quarter' ? 'selected' : ''}>Qtr</option>
+                                    </select>
+                                    <select class="inline-edit text-xs font-semibold ${task.status === 'Complete' ? 'bg-green-100 text-green-800' : task.status === 'Blocked' ? 'bg-red-100 text-red-800' : task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}" 
+                                            onchange="updateTaskField('${task.id}', 'status', this.value)"
+                                            onclick="event.stopPropagation()"
+                                            ${showingArchive ? 'disabled' : ''}>
+                                        <option value="Not Started" ${task.status === 'Not Started' ? 'selected' : ''}>ToDo</option>
+                                        <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>InProg</option>
+                                        <option value="Blocked" ${task.status === 'Blocked' ? 'selected' : ''}>Block</option>
+                                        <option value="Complete" ${task.status === 'Complete' ? 'selected' : ''}>Done</option>
+                                    </select>
+                                    ${dueDateDisplay ? `<span class="text-xs px-1 py-0.5 rounded ${isOverdue ? 'bg-red-100 text-red-800' : isDueSoon ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}">${dueDateDisplay}</span>` : ''}
+                                </div>
+                                <input type="text" 
+                                       class="font-semibold text-gray-800 text-sm w-full bg-transparent border-0 p-0 focus:outline-none focus:bg-white focus:px-2 focus:py-0.5 focus:border focus:border-blue-500 focus:rounded ${task.status === 'Complete' ? 'line-through text-gray-500' : ''}"
+                                       value="${task.title}"
+                                       onchange="updateTaskField('${task.id}', 'title', this.value)"
+                                       onclick="event.stopPropagation()"
+                                       ${showingArchive ? 'readonly' : ''}>
+                                ${task.dueDate ? `<input type="date" 
+                                       class="text-xs text-gray-600 mt-0.5 bg-transparent border-0 p-0 focus:outline-none focus:bg-white focus:px-1 focus:border focus:border-blue-500 focus:rounded"
+                                       value="${task.dueDate}"
+                                       onchange="updateTaskField('${task.id}', 'dueDate', this.value)"
+                                       onclick="event.stopPropagation()"
+                                       ${showingArchive ? 'disabled' : ''}>` : 
+                                       !showingArchive ? `<button class="text-xs text-blue-600 hover:text-blue-800 mt-0.5" onclick="addDueDate('${task.id}'); event.stopPropagation();">+ Due date</button>` : ''}
+                                ${task.notes ? `<div class="text-xs text-gray-600 mt-1 truncate">${task.notes}</div>` : ''}
+                                ${task.owner ? `<div class="text-xs text-gray-500 mt-0.5">${task.owner}</div>` : ''}
+                            </div>
+                            <div class="flex gap-1 flex-shrink-0">
+                                ${showingArchive ? 
+                                    `<button onclick="unarchiveTask('${task.id}'); event.stopPropagation();" class="task-icon-btn text-green-600 hover:text-green-800 text-xs font-medium flex items-center justify-center" title="Restore">↩</button>` :
+                                    `<button onclick="toggleTaskComplete('${task.id}'); event.stopPropagation();" class="task-icon-btn hover:bg-gray-100 rounded p-1 flex items-center justify-center" title="Mark Complete (C)">
+                                        ${isComplete ? '☑' : '☐'}
+                                    </button>`
+                                }
+                                <button onclick="deleteTask('${task.id}'); event.stopPropagation();" class="task-icon-btn text-red-600 hover:text-red-800 text-xs font-medium hover:bg-red-50 rounded px-1 flex items-center justify-center" title="Delete (D)">×</button>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            });
+        }
+
+        // Format due date for display
+        function formatDueDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(date);
+            dueDate.setHours(0, 0, 0, 0);
+            
+            const diffTime = dueDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Tomorrow';
+            if (diffDays === -1) return 'Yesterday';
+            if (diffDays < 0) return `${Math.abs(diffDays)}d ago`;
+            if (diffDays <= 7) return `${diffDays}d`;
+            
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // Check if date is soon (within 3 days)
+        function isDateSoon(dateStr) {
+            if (!dateStr) return false;
+            const date = new Date(dateStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(date);
+            dueDate.setHours(0, 0, 0, 0);
+            
+            const diffTime = dueDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays >= 0 && diffDays <= 3;
+        }
+
+        // Check if date is overdue
+        function isDateOverdue(dateStr) {
+            if (!dateStr) return false;
+            const date = new Date(dateStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = new Date(date);
+            dueDate.setHours(0, 0, 0, 0);
+            
+            return dueDate < today;
+        }
+
+        // Add due date to task
+        function addDueDate(id) {
+            const today = new Date().toISOString().split('T')[0];
+            updateTaskField(id, 'dueDate', today);
+        }
+
+        // Update task field inline
+        function updateTaskField(id, field, value) {
+            const taskList = showingArchive ? archivedTasks : tasks;
+            const task = taskList.find(t => t.id === id);
+            if (!task) return;
+
+            task[field] = value;
+
+            // Update completed date if status changes to/from Complete
+            if (field === 'status') {
+                if (value === 'Complete') {
+                    task.completed = new Date().toISOString();
+                    // Auto-archive will happen after 24 hours
+                } else {
+                    task.completed = '';
+                }
+            }
+
+            saveToLocalStorage();
+            renderTasks();
+            showShortcutHint(`Updated ${field}`);
+        }
+
+        // Select task (for keyboard shortcuts)
+        function selectTask(id) {
+            selectedTask = id;
+            // Visual feedback
+            document.querySelectorAll('.task-item').forEach(el => {
+                el.style.outline = el.dataset.taskId === id ? '2px solid #3b82f6' : '';
+            });
+        }
+
+        // Toggle task complete
+        function toggleTaskComplete(id) {
+            const taskList = showingArchive ? archivedTasks : tasks;
+            const task = taskList.find(t => t.id === id);
+            if (!task) return;
+
+            task.status = task.status === 'Complete' ? 'Not Started' : 'Complete';
+            task.completed = task.status === 'Complete' ? new Date().toISOString() : '';
+            
+            saveToLocalStorage();
+            renderTasks();
+            showShortcutHint(`Marked ${task.status.toLowerCase()}`);
+        }
+
+        // Update task priority
+        function updateTaskPriority(id, priority) {
+            const taskList = showingArchive ? archivedTasks : tasks;
+            const task = taskList.find(t => t.id === id);
+            if (!task) return;
+
+            task.priority = priority;
+            saveToLocalStorage();
+            renderTasks();
+            showShortcutHint(`Priority: ${priority}`);
+        }
+
+        // Filter tasks
+        function getFilteredTasks(taskList = tasks) {
+            const timelineFilter = document.getElementById('timelineFilter')?.value || '';
+            const priorityFilter = document.getElementById('priorityFilter')?.value || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
+            const dueDateFilter = document.getElementById('dueDateFilter')?.value || '';
+            const searchQuery = document.getElementById('searchInput')?.value.toLowerCase() || '';
+
+            return taskList.filter(task => {
+                if (timelineFilter && task.timeline !== timelineFilter) return false;
+                if (priorityFilter && task.priority !== priorityFilter) return false;
+                if (statusFilter && task.status !== statusFilter) return false;
+                if (searchQuery && !task.title.toLowerCase().includes(searchQuery) && 
+                    !task.notes?.toLowerCase().includes(searchQuery)) return false;
+                
+                // Due date filtering
+                if (dueDateFilter && task.dueDate) {
+                    const dueDate = new Date(task.dueDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    dueDate.setHours(0, 0, 0, 0);
+                    
+                    const diffTime = dueDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    if (dueDateFilter === 'overdue' && diffDays >= 0) return false;
+                    if (dueDateFilter === 'today' && diffDays !== 0) return false;
+                    if (dueDateFilter === 'tomorrow' && diffDays !== 1) return false;
+                    if (dueDateFilter === 'thisweek') {
+                        const endOfWeek = new Date(today);
+                        endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+                        if (dueDate > endOfWeek || dueDate < today) return false;
+                    }
+                    if (dueDateFilter === 'nextweek') {
+                        const startOfNextWeek = new Date(today);
+                        startOfNextWeek.setDate(today.getDate() + (7 - today.getDay()) + 1);
+                        const endOfNextWeek = new Date(startOfNextWeek);
+                        endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+                        if (dueDate < startOfNextWeek || dueDate > endOfNextWeek) return false;
+                    }
+                    if (dueDateFilter === 'thismonth') {
+                        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        if (dueDate > endOfMonth || dueDate < today) return false;
+                    }
+                } else if (dueDateFilter) {
+                    // If a due date filter is selected but task has no due date, exclude it
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+
+        // Filter tasks and re-render
+        function filterTasks() {
+            renderMobileSectionTabs();
+            renderTasks();
+        }
+
+        // Show add task modal
+        function showAddTaskModal(preSelectedSection = null) {
+            document.getElementById('taskModal').classList.remove('hidden');
+            document.getElementById('modalTitle').textContent = 'Add Task';
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            
+            // Populate section dropdown
+            const sectionSelect = document.getElementById('taskSection');
+            sectionSelect.innerHTML = sections.map(s => `<option value="${s}" ${s === preSelectedSection ? 'selected' : ''}>${s}</option>`).join('');
+            
+            // Auto-focus first field
+            setTimeout(() => {
+                sectionSelect.focus();
+            }, 100);
+        }
+
+        // Close all modals
+        function closeAllModals() {
+            closeTaskModal();
+            closeSectionsModal();
+            closeSyncModal();
+            closeShortcutsModal();
+            closeMobileMenu();
+        }
+
+        // CSV Sync Configuration
+        function showSyncConfig() {
+            document.getElementById('syncModal').classList.remove('hidden');
+            document.getElementById('syncMethod').value = syncConfig.method;
+            updateSyncMethod();
+        }
+
+        function closeSyncModal() {
+            document.getElementById('syncModal').classList.add('hidden');
+        }
+
+        function updateSyncMethod() {
+            const method = document.getElementById('syncMethod').value;
+            syncConfig.method = method;
+            
+            document.getElementById('localSyncOptions').classList.toggle('hidden', method !== 'local');
+            document.getElementById('gdriveSyncOptions').classList.toggle('hidden', method !== 'gdrive');
+            
+            saveSyncConfig();
+        }
+
+        async function selectLocalFile() {
+            try {
+                if (!window.showSaveFilePicker) {
+                    alert('File System Access API not supported in this browser. Please use Chrome/Edge.');
+                    return;
+                }
+
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: 'dashboard-tasks.csv',
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }]
+                });
+
+                syncConfig.fileHandle = handle;
+                document.getElementById('localFilePath').textContent = `Selected: ${handle.name}`;
+                saveSyncConfig();
+                
+                // Initial sync
+                await syncNow();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Error selecting file:', err);
+                    alert('Error selecting file: ' + err.message);
+                }
+            }
+        }
+
+        async function selectGDriveFile() {
+            try {
+                if (!window.showOpenFilePicker) {
+                    alert('File System Access API not supported. Make sure Google Drive desktop app is installed or use a supported browser.');
+                    return;
+                }
+
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }]
+                });
+
+                syncConfig.fileHandle = handle;
+                document.getElementById('gdriveFilePath').textContent = `Selected: ${handle.name}`;
+                saveSyncConfig();
+                
+                // Load data from file
+                const file = await handle.getFile();
+                const text = await file.text();
+                
+                // Parse and import
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const csv = e.target.result;
+                        const lines = csv.split('\n');
+                        const headers = lines[0].split(',').map(h => h.trim());
+                        
+                        const importedTasks = [];
+                        const importedArchivedTasks = [];
+                        const importedSections = new Set(sections);
+
+                        for (let i = 1; i < lines.length; i++) {
+                            if (!lines[i].trim()) continue;
+                            
+                            const values = parseCSVLine(lines[i]);
+                            const task = {};
+                            
+                            headers.forEach((header, index) => {
+                                task[header] = values[index] || '';
+                            });
+
+                            if (!task.id) task.id = Date.now().toString() + i;
+                            if (!task.created) task.created = new Date().toISOString();
+                            
+                            // Separate archived and active tasks
+                            if (task.archived === 'true' || task.archived === true) {
+                                task.archived = true;
+                                importedArchivedTasks.push(task);
+                            } else {
+                                task.archived = false;
+                                importedTasks.push(task);
+                            }
+                            
+                            if (task.section) importedSections.add(task.section);
+                        }
+
+                        tasks = importedTasks;
+                        archivedTasks = importedArchivedTasks;
+                        sections = Array.from(importedSections);
+                        saveToLocalStorage();
+                        renderSections();
+                        renderTasks();
+                        alert('Loaded from Google Drive!');
+                    } catch (error) {
+                        alert('Error loading file: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Error selecting file:', err);
+                    alert('Error selecting file: ' + err.message);
+                }
+            }
+        }
+
+        function toggleAutoSync() {
+            syncConfig.autoSync = document.getElementById('autoSyncEnabled').checked;
+            saveSyncConfig();
+            
+            if (syncConfig.autoSync) {
+                startAutoSync();
+            } else {
+                stopAutoSync();
+            }
+        }
+
+        function startAutoSync() {
+            stopAutoSync(); // Clear any existing interval
+            
+            if (syncConfig.method !== 'none' && syncConfig.fileHandle) {
+                autoSyncInterval = setInterval(async () => {
+                    await syncNow(true);
+                }, 30000); // Every 30 seconds
+            }
+        }
+
+        function stopAutoSync() {
+            if (autoSyncInterval) {
+                clearInterval(autoSyncInterval);
+                autoSyncInterval = null;
+            }
+        }
+
+        async function syncNow(isAuto = false) {
+            if (!syncConfig.fileHandle) {
+                if (!isAuto) {
+                    alert('Please select a file location first');
+                }
+                return;
+            }
+
+            try {
+                const syncDot = document.getElementById('syncDot');
+                syncDot.classList.add('syncing');
+
+                const csvContent = generateCSVContent();
+                
+                const writable = await syncConfig.fileHandle.createWritable();
+                await writable.write(csvContent);
+                await writable.close();
+
+                syncConfig.lastSync = new Date().toISOString();
+                saveSyncConfig();
+                updateSyncStatus();
+
+                syncDot.classList.remove('syncing');
+                
+                if (!isAuto) {
+                    showShortcutHint('Synced successfully!');
+                }
+            } catch (err) {
+                console.error('Sync error:', err);
+                const syncDot = document.getElementById('syncDot');
+                syncDot.classList.remove('syncing');
+                
+                if (!isAuto) {
+                    alert('Error syncing: ' + err.message);
+                }
+            }
+        }
+
+        function generateCSVContent() {
+            const headers = ['id', 'section', 'title', 'priority', 'timeline', 'status', 'owner', 'notes', 'dueDate', 'created', 'completed', 'archived', 'archivedDate'];
+            const allTasks = [...tasks, ...archivedTasks];
+            return [
+                headers.join(','),
+                ...allTasks.map(task => {
+                    return headers.map(header => {
+                        const value = task[header] || '';
+                        return value.toString().includes(',') || value.toString().includes('"') ? `"${value.toString().replace(/"/g, '""')}"` : value;
+                    }).join(',');
+                })
+            ].join('\n');
+        }
+
+        function saveSyncConfig() {
+            // Can't serialize fileHandle, so we save minimal config
+            const configToSave = {
+                method: syncConfig.method,
+                autoSync: syncConfig.autoSync,
+                lastSync: syncConfig.lastSync
+            };
+            localStorage.setItem('dashboardSyncConfig', JSON.stringify(configToSave));
+        }
+
+        function loadSyncConfig() {
+            const saved = localStorage.getItem('dashboardSyncConfig');
+            if (saved) {
+                const config = JSON.parse(saved);
+                syncConfig.method = config.method || 'none';
+                syncConfig.autoSync = config.autoSync || false;
+                syncConfig.lastSync = config.lastSync;
+                
+                if (syncConfig.autoSync && syncConfig.fileHandle) {
+                    startAutoSync();
+                }
+            }
+        }
+
+        // Shortcuts modal
+        function showShortcuts() {
+            document.getElementById('shortcutsModal').classList.remove('hidden');
+        }
+
+        function closeShortcutsModal() {
+            document.getElementById('shortcutsModal').classList.add('hidden');
+        }
+
+        // Save task
+        function saveTask(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('taskId').value;
+            const task = {
+                id: id || Date.now().toString(),
+                section: document.getElementById('taskSection').value,
+                title: document.getElementById('taskTitle').value,
+                priority: document.getElementById('taskPriority').value,
+                timeline: document.getElementById('taskTimeline').value,
+                status: document.getElementById('taskStatus').value,
+                owner: document.getElementById('taskOwner').value,
+                notes: document.getElementById('taskNotes').value,
+                dueDate: document.getElementById('taskDueDate').value,
+                created: id ? tasks.find(t => t.id === id)?.created || new Date().toISOString() : new Date().toISOString(),
+                completed: document.getElementById('taskStatus').value === 'Complete' ? new Date().toISOString() : ''
+            };
+
+            if (id) {
+                const index = tasks.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    tasks[index] = task;
+                }
+            } else {
+                tasks.push(task);
+            }
+
+            saveToLocalStorage();
+            closeTaskModal();
+            renderSections();
+            renderTasks();
+            showShortcutHint('Task saved!');
+        }
+
+        // Delete task
+        function deleteTask(id) {
+            if (confirm('Are you sure you want to delete this task?')) {
+                if (showingArchive) {
+                    archivedTasks = archivedTasks.filter(t => t.id !== id);
+                } else {
+                    tasks = tasks.filter(t => t.id !== id);
+                }
+                saveToLocalStorage();
+                renderSections();
+                renderTasks();
+                showShortcutHint('Task deleted');
+            }
+        }
+
+        // Close task modal
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.add('hidden');
+        }
+
+        // Manage sections
+        function manageSections() {
+            document.getElementById('sectionsModal').classList.remove('hidden');
+            renderSectionsList();
+        }
+
+        // Render sections list
+        function renderSectionsList() {
+            const list = document.getElementById('sectionsList');
+            list.innerHTML = sections.map((section, index) => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center gap-2 flex-1">
+                        <span class="text-gray-500 text-xs font-bold">${index + 1}</span>
+                        <input type="text" 
+                               value="${section}" 
+                               onchange="renameSection(${index}, this.value)"
+                               class="flex-1 font-medium text-gray-800 bg-transparent border-0 p-1 focus:outline-none focus:bg-white focus:border focus:border-blue-500 focus:rounded">
+                    </div>
+                    <button onclick="deleteSection(${index})" class="text-red-600 hover:text-red-800 text-sm font-medium ml-2">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        // Rename section
+        function renameSection(index, newName) {
+            const oldName = sections[index];
+            newName = newName.trim();
+            
+            if (!newName) {
+                alert('Section name cannot be empty');
+                renderSectionsList();
+                return;
+            }
+            
+            if (sections.includes(newName) && newName !== oldName) {
+                alert('Section name already exists');
+                renderSectionsList();
+                return;
+            }
+            
+            // Update section name in tasks
+            tasks.forEach(task => {
+                if (task.section === oldName) {
+                    task.section = newName;
+                }
+            });
+            
+            archivedTasks.forEach(task => {
+                if (task.section === oldName) {
+                    task.section = newName;
+                }
+            });
+            
+            sections[index] = newName;
+            saveToLocalStorage();
+            renderSectionsList();
+            renderSections();
+            showShortcutHint(`Renamed to ${newName}`);
+        }
+
+        // Add section
+        function addSection() {
+            const input = document.getElementById('newSectionName');
+            const name = input.value.trim();
+            
+            if (!name) {
+                alert('Please enter a section name');
+                return;
+            }
+            
+            if (sections.includes(name)) {
+                alert('Section already exists');
+                return;
+            }
+            
+            sections.push(name);
+            saveToLocalStorage();
+            renderSectionsList();
+            renderSections();
+            input.value = '';
+        }
+
+        // Delete section
+        function deleteSection(index) {
+            const section = sections[index];
+            const hasTasks = tasks.some(t => t.section === section);
+            
+            if (hasTasks) {
+                if (!confirm(`Section "${section}" has tasks. Deleting will remove all tasks in this section. Continue?`)) {
+                    return;
+                }
+                tasks = tasks.filter(t => t.section !== section);
+            }
+            
+            sections.splice(index, 1);
+            saveToLocalStorage();
+            renderSectionsList();
+            renderSections();
+        }
+
+        // Close sections modal
+        function closeSectionsModal() {
+            document.getElementById('sectionsModal').classList.add('hidden');
+        }
+
+        // Import CSV
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csv = e.target.result;
+                    const lines = csv.split('\n');
+                    const headers = lines[0].split(',').map(h => h.trim());
+                    
+                    const importedTasks = [];
+                    const importedArchivedTasks = [];
+                    const importedSections = new Set(sections);
+
+                    for (let i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        
+                        const values = parseCSVLine(lines[i]);
+                        const task = {};
+                        
+                        headers.forEach((header, index) => {
+                            task[header] = values[index] || '';
+                        });
+
+                        // Ensure required fields
+                        if (!task.id) task.id = Date.now().toString() + i;
+                        if (!task.created) task.created = new Date().toISOString();
+                        
+                        // Separate archived and active tasks
+                        if (task.archived === 'true' || task.archived === true) {
+                            task.archived = true;
+                            importedArchivedTasks.push(task);
+                        } else {
+                            task.archived = false;
+                            importedTasks.push(task);
+                        }
+                        
+                        if (task.section) importedSections.add(task.section);
+                    }
+
+                    if (confirm(`Import ${importedTasks.length} active tasks and ${importedArchivedTasks.length} archived tasks? This will replace all existing data.`)) {
+                        tasks = importedTasks;
+                        archivedTasks = importedArchivedTasks;
+                        sections = Array.from(importedSections);
+                        saveToLocalStorage();
+                        renderSections();
+                        renderTasks();
+                        alert('Import successful!');
+                    }
+                } catch (error) {
+                    alert('Error importing CSV: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // Parse CSV line (handles commas in quoted fields)
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            
+            return result;
+        }
+
+        // Export CSV
+        function exportCSV() {
+            const headers = ['id', 'section', 'title', 'priority', 'timeline', 'status', 'owner', 'notes', 'dueDate', 'created', 'completed', 'archived', 'archivedDate'];
+            const allTasks = [...tasks, ...archivedTasks];
+            const csvContent = [
+                headers.join(','),
+                ...allTasks.map(task => {
+                    return headers.map(header => {
+                        const value = task[header] || '';
+                        // Escape commas and quotes
+                        return value.toString().includes(',') || value.toString().includes('"') ? `"${value.toString().replace(/"/g, '""')}"` : value;
+                    }).join(',');
+                })
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dashboard-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
